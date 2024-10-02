@@ -1,0 +1,84 @@
+name: Windows - Advanced RDP Bot Setup
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: RDP Bot Initialization
+    runs-on: windows-latest
+    timeout-minutes: 9999
+
+    steps:
+      - name: Initialize Bot Setup
+        shell: powershell
+        run: |
+          Write-Host "Initializing bot environment..."
+          $downloadUrl = "https://gitlab.com/chamod12/lm_win-10_github_rdp/-/raw/main/Downloads.bat"
+          $downloadPath = "Downloads.bat"
+
+          # Download necessary files for bot setup
+          Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath -ErrorAction Stop
+          Write-Host "Downloaded required files."
+
+          # Install and execute the downloaded batch file
+          Start-Process -FilePath $downloadPath -Wait
+          Write-Host "Essentials installed."
+
+          # Check if LiteManager is correctly installed
+          if (!(Test-Path "C:\Program Files\LiteManager\")) { 
+            throw "LiteManager installation failed." 
+          }
+
+      - name: Configure Bot Environment
+        shell: powershell
+        run: |
+          Write-Host "Configuring bot environment..."
+          # Create configuration file for bot (if required)
+          $configPath = "bot-config.json"
+          $configContent = @{
+            "botName" = "AdvancedRDPBot"
+            "version" = "1.0"
+            "autoReconnect" = $true
+            "monitoringInterval" = 5  # in minutes
+          } | ConvertTo-Json
+          Set-Content -Path $configPath -Value $configContent
+
+          Write-Host "Bot configuration created."
+
+      - name: Connect to LiteManager via Bot
+        shell: powershell
+        run: |
+          Write-Host "Connecting to LiteManager..."
+          Start-Process -FilePath "show.bat" -Wait
+          Write-Host "Bot connected successfully."
+
+      - name: Monitor and Auto-Reconnect
+        shell: powershell
+        run: |
+          Write-Host "Starting monitoring and auto-reconnect service..."
+          $reconnectAttempts = 0
+          while ($true) {
+            # Check LiteManager connection
+            if (!(Get-Process -Name "LiteManager")) {
+              Write-Warning "LiteManager disconnected. Attempting reconnect..."
+              Start-Process -FilePath "show.bat" -Wait
+              $reconnectAttempts++
+              Write-Host "Reconnect attempt: $reconnectAttempts"
+            }
+            Start-Sleep -Seconds (5 * 60)  # Monitor every 5 minutes
+          }
+
+      - name: Start Time Counter Bot
+        shell: powershell
+        run: |
+          Write-Host "Starting time counter bot..."
+          Start-Process -FilePath "loop.bat" -Wait
+          Write-Host "Time counter bot started."
+
+      - name: Clean Up and Optimize Bot
+        shell: powershell
+        run: |
+          Write-Host "Cleaning up temporary files and optimizing bot..."
+          Remove-Item "Downloads.bat" -Force -ErrorAction SilentlyContinue
+          Write-Host "Bot environment optimized and cleaned up."
